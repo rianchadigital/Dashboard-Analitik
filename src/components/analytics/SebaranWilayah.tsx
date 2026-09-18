@@ -157,31 +157,49 @@ export const NAKES_9_CATEGORIES: NakesCategoryDef[] = [
   }
 ];
 
-// Helper to categorize job into 9 nakes or admin
+// Helper to categorize job into 9 nakes or admin/penunjang
 export function detectNakesCategory(jobTitle: string): string {
-  const j = (jobTitle || '').toLowerCase();
+  const j = (jobTitle || '').toLowerCase().trim();
   
-  if (j.includes('dokter gigi') || j.includes('terapis gigi') || j.includes('gigi')) {
+  // 1. Terapis Gigi dan Mulut / Perawat Gigi adalah Tenaga Kesehatan Keterapian Fisik / Penunjang (bukan Dokter Gigi Permenkes)
+  if (j.includes('terapis gigi') || j.includes('perawat gigi')) {
+    return 'admin';
+  }
+
+  // 2. Dokter Gigi: Khusus Dokter Gigi / Drg. (bukan terapis)
+  if (j.includes('dokter gigi') || j.includes('drg')) {
     return 'dr_gigi';
   }
+
+  // 3. Dokter Umum / Dokter Pertama / Muda / Madya / Layanan Primer
   if (j.includes('dokter') && !j.includes('gigi')) {
     return 'dr_umum';
   }
-  if (j.includes('perawat')) {
+
+  // 4. Perawat (Ahli, Terampil, Mahir, Ners)
+  if (j.includes('perawat') || j.includes('ners')) {
     return 'perawat';
   }
+
+  // 5. Bidan (Penyelia, Terampil, Ahli)
   if (j.includes('bidan')) {
     return 'bidan';
   }
+
+  // 6. Tenaga Kesehatan Masyarakat / Promosi Kesehatan / Epidemiolog
   if (
     j.includes('promosi kesehatan') || 
     j.includes('epidemiolog') || 
     j.includes('kesmas') || 
     j.includes('promkes') ||
-    j.includes('penyuluh kesehatan')
+    j.includes('penyuluh kesehatan') ||
+    j.includes('administrator kesehatan') ||
+    j.includes('pembimbing kesehatan kerja')
   ) {
     return 'kesmas';
   }
+
+  // 7. Tenaga Sanitasi Lingkungan / Sanitarian / Kesling
   if (
     j.includes('sanitasi') || 
     j.includes('kesling') || 
@@ -190,17 +208,25 @@ export function detectNakesCategory(jobTitle: string): string {
   ) {
     return 'kesling';
   }
+
+  // 8. Ahli Teknologi Laboratorium Medik (ATLM) / Pranata Labkes
   if (
     j.includes('pranata laboratorium') || 
+    j.includes('analis kesehatan') ||
     j.includes('analis lab') || 
     j.includes('atlm') || 
-    j.includes('laboratorium')
+    j.includes('laboratorium kesehatan') ||
+    (j.includes('laboratorium') && !j.includes('pengadministrasi'))
   ) {
     return 'atlm';
   }
+
+  // 9. Tenaga Gizi (Nutrisionis / Dietisien)
   if (j.includes('nutrisionis') || j.includes('gizi') || j.includes('dietisien')) {
     return 'gizi';
   }
+
+  // 10. Tenaga Kefarmasian (Apoteker / Asisten Apoteker / TTK)
   if (
     j.includes('apoteker') || 
     j.includes('farmasi') || 
@@ -209,6 +235,8 @@ export function detectNakesCategory(jobTitle: string): string {
   ) {
     return 'farmasi';
   }
+
+  // Tenaga Penunjang / Administrasi / Non-9 Nakes lainnya
   return 'admin';
 }
 

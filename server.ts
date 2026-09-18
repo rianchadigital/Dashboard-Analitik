@@ -25,7 +25,7 @@ async function startServer() {
     try {
       const spreadsheetId = (req.query.spreadsheetId as string) || "1ykpLnIE8305uphJMvXOdPuwb8T_mkQsnw8GOmByLFko";
       const gid = (req.query.gid as string) || "1900197277";
-      const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=${gid}`;
+      const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&gid=${gid}`;
 
       const response = await fetch(url, {
         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
