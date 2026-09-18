@@ -26,6 +26,7 @@ import {
   X
 } from 'lucide-react';
 import { Sheet, RowData } from '../../types/sheet';
+import { StaffListModal } from '../Modals/StaffListModal';
 
 interface SebaranWilayahProps {
   sheet: Sheet;
@@ -268,6 +269,29 @@ export const SebaranWilayah: React.FC<SebaranWilayahProps> = ({ sheet }) => {
   const [selectedFacilityId, setSelectedFacilityId] = useState<string>('ALL');
   const [staffSearch, setStaffSearch] = useState<string>('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('ALL');
+
+  // Popup modal state for displaying staff members when clicking numbers
+  const [staffModalData, setStaffModalData] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle?: string;
+    badgeText?: string;
+    staffList: RowData[];
+  }>({
+    isOpen: false,
+    title: '',
+    staffList: []
+  });
+
+  const handleOpenStaffModal = (title: string, subtitle: string, list: RowData[]) => {
+    setStaffModalData({
+      isOpen: true,
+      title,
+      subtitle,
+      badgeText: `${list.length} Orang Pegawai`,
+      staffList: list
+    });
+  };
 
   // Compute facility table summary matching the screenshot
   const tableData = useMemo(() => {
@@ -622,14 +646,33 @@ export const SebaranWilayah: React.FC<SebaranWilayahProps> = ({ sheet }) => {
                     </td>
 
                     {/* Total SDMK */}
-                    <td className="py-3 px-3 text-center font-bold text-slate-900 bg-emerald-50/30 border-r border-slate-100 font-mono text-sm">
-                      {row.counts.total}
+                    <td className="py-3 px-3 text-center bg-emerald-50/30 border-r border-slate-100 font-mono text-sm">
+                      {row.counts.total > 0 ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenStaffModal(
+                              `Daftar Semua SDMK - ${row.name}`,
+                              `Unit Tugas: ${row.name} (${row.island})`,
+                              row.staffList
+                            );
+                          }}
+                          className="font-bold text-slate-900 inline-block px-2 py-0.5 rounded hover:bg-emerald-200 hover:text-emerald-950 transition-all cursor-pointer underline decoration-emerald-400 font-mono text-sm shadow-2xs"
+                          title={`Klik untuk melihat seluruh ${row.counts.total} pegawai di ${row.name}`}
+                        >
+                          {row.counts.total}
+                        </button>
+                      ) : (
+                        <span className="font-bold text-slate-400">0</span>
+                      )}
                     </td>
 
                     {/* 9 Nakes cells */}
                     {NAKES_9_CATEGORIES.map((cat) => {
                       const count = row.counts[cat.key] || 0;
                       const hasStaff = count > 0;
+                      const staffInCat = row.staffList.filter(r => detectNakesCategory(r.jabatan) === cat.key);
 
                       return (
                         <td 
@@ -637,9 +680,21 @@ export const SebaranWilayah: React.FC<SebaranWilayahProps> = ({ sheet }) => {
                           className="py-3 px-2 text-center border-r border-slate-100 font-mono text-xs"
                         >
                           {hasStaff ? (
-                            <span className="font-bold text-slate-900 inline-block px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenStaffModal(
+                                  `Daftar ${cat.name} - ${row.name}`,
+                                  `Kategori: Standar ${cat.number} (${cat.name}) • Unit: ${row.name} (${row.island})`,
+                                  staffInCat
+                                );
+                              }}
+                              className="font-bold text-slate-900 inline-block px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 hover:bg-emerald-200 hover:scale-110 hover:shadow-xs transition-all cursor-pointer underline decoration-emerald-500"
+                              title={`Klik untuk melihat ${count} orang pegawai ${cat.name} di ${row.name}`}
+                            >
                               {count}
-                            </span>
+                            </button>
                           ) : (
                             <span className="font-semibold text-slate-300 inline-block px-1.5 py-0.5 rounded">
                               0
@@ -651,7 +706,24 @@ export const SebaranWilayah: React.FC<SebaranWilayahProps> = ({ sheet }) => {
 
                     {/* Admin / Penunjang cell */}
                     <td className="py-3 px-2 text-center border-r border-slate-100 font-mono text-xs font-semibold text-slate-600">
-                      {row.counts.admin > 0 ? row.counts.admin : '-'}
+                      {row.counts.admin > 0 ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const staffInAdmin = row.staffList.filter(r => detectNakesCategory(r.jabatan) === 'admin');
+                            handleOpenStaffModal(
+                              `Daftar Admin / Penunjang - ${row.name}`,
+                              `Tenaga Non-Kesehatan / Administrasi di ${row.name}`,
+                              staffInAdmin
+                            );
+                          }}
+                          className="font-bold text-slate-700 inline-block px-1.5 py-0.5 rounded hover:bg-slate-200 hover:scale-110 transition-all cursor-pointer underline decoration-slate-400"
+                          title={`Klik untuk melihat ${row.counts.admin} orang pegawai admin di ${row.name}`}
+                        >
+                          {row.counts.admin}
+                        </button>
+                      ) : '-'}
                     </td>
 
                     {/* Status 9 Nakes */}
@@ -697,17 +769,60 @@ export const SebaranWilayah: React.FC<SebaranWilayahProps> = ({ sheet }) => {
                 </td>
 
                 <td className="py-3.5 px-3 text-center text-emerald-900 bg-emerald-100/60 font-black font-mono text-sm border-r border-slate-200">
-                  {grandTotal.counts.total}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleOpenStaffModal(
+                        'Daftar Seluruh SDMK Puskesmas & Pustu',
+                        'Total 158 Pegawai di Puskesmas Kecamatan & Seluruh Pustu Kepulauan',
+                        sheet.rows
+                      );
+                    }}
+                    className="hover:underline hover:text-emerald-950 cursor-pointer inline-block px-1 rounded hover:bg-emerald-200 transition-all font-black"
+                    title="Klik untuk melihat seluruh 158 pegawai"
+                  >
+                    {grandTotal.counts.total}
+                  </button>
                 </td>
 
-                {NAKES_9_CATEGORIES.map(cat => (
-                  <td key={cat.key} className="py-3.5 px-2 text-center text-slate-900 font-black font-mono text-xs border-r border-slate-200">
-                    {grandTotal.counts[cat.key]}
-                  </td>
-                ))}
+                {NAKES_9_CATEGORIES.map(cat => {
+                  const staffInCat = sheet.rows.filter(r => detectNakesCategory(r.jabatan) === cat.key);
+                  return (
+                    <td key={cat.key} className="py-3.5 px-2 text-center text-slate-900 font-black font-mono text-xs border-r border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleOpenStaffModal(
+                            `Daftar Seluruh ${cat.name} (Semua Wilayah)`,
+                            `Total ${grandTotal.counts[cat.key]} Pegawai ${cat.name} di Puskesmas Kecamatan & 5 Pustu`,
+                            staffInCat
+                          );
+                        }}
+                        className="hover:underline hover:text-emerald-800 cursor-pointer inline-block px-1 rounded hover:bg-emerald-200/70 transition-colors"
+                        title={`Klik untuk melihat ${grandTotal.counts[cat.key]} pegawai ${cat.name}`}
+                      >
+                        {grandTotal.counts[cat.key]}
+                      </button>
+                    </td>
+                  );
+                })}
 
                 <td className="py-3.5 px-2 text-center text-slate-800 font-black font-mono text-xs border-r border-slate-200">
-                  {grandTotal.counts.admin}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const staffInAdmin = sheet.rows.filter(r => detectNakesCategory(r.jabatan) === 'admin');
+                      handleOpenStaffModal(
+                        'Daftar Seluruh Tenaga Admin / Penunjang (Semua Wilayah)',
+                        `Total ${grandTotal.counts.admin} Staf Non-Kesehatan / Administrasi`,
+                        staffInAdmin
+                      );
+                    }}
+                    className="hover:underline hover:text-slate-950 cursor-pointer inline-block px-1 rounded hover:bg-slate-200 transition-colors"
+                    title={`Klik untuk melihat ${grandTotal.counts.admin} pegawai admin`}
+                  >
+                    {grandTotal.counts.admin}
+                  </button>
                 </td>
 
                 <td className="py-3.5 px-3 text-center bg-blue-100 text-blue-950 font-black text-xs">
@@ -883,6 +998,18 @@ export const SebaranWilayah: React.FC<SebaranWilayahProps> = ({ sheet }) => {
           </table>
         </div>
       </div>
+
+      {/* PopUP Modal for Staff Names List */}
+      {staffModalData.isOpen && (
+        <StaffListModal
+          isOpen={staffModalData.isOpen}
+          onClose={() => setStaffModalData(prev => ({ ...prev, isOpen: false }))}
+          title={staffModalData.title}
+          subtitle={staffModalData.subtitle}
+          badgeText={staffModalData.badgeText}
+          staffList={staffModalData.staffList}
+        />
+      )}
     </div>
   );
 };

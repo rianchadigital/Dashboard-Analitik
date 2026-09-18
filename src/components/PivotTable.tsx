@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Layers, Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
-import { Sheet } from '../types/sheet';
+import { Sheet, RowData } from '../types/sheet';
 import { calculatePivot, formatCurrency, formatNumber, PivotItem } from '../utils/analytics';
+import { StaffListModal } from './Modals/StaffListModal';
 
 interface PivotTableProps {
   sheet: Sheet;
@@ -30,6 +31,29 @@ export const PivotTable: React.FC<PivotTableProps> = ({ sheet }) => {
 
   const [sortField, setSortField] = useState<keyof PivotItem>('totalSum');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // Staff list popup modal state
+  const [staffModalData, setStaffModalData] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle?: string;
+    badgeText?: string;
+    staffList: RowData[];
+  }>({
+    isOpen: false,
+    title: '',
+    staffList: []
+  });
+
+  const handleOpenStaffModal = (title: string, subtitle: string, list: RowData[]) => {
+    setStaffModalData({
+      isOpen: true,
+      title,
+      subtitle,
+      badgeText: `${list.length} Pegawai`,
+      staffList: list
+    });
+  };
 
   const metricCol = sheet.columns.find(c => c.id === metricColId) || numericColumns[0];
   const groupCol = sheet.columns.find(c => c.id === groupByColId) || groupableColumns[0];
@@ -244,7 +268,25 @@ export const PivotTable: React.FC<PivotTableProps> = ({ sheet }) => {
                     </td>
 
                     <td className="px-4 py-3 text-right tabular-nums text-slate-600">
-                      {item.count} entri
+                      {item.count > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const groupStaff = sheet.rows.filter(r => String(r[groupByColId] ?? '(Kosong)') === item.category);
+                            handleOpenStaffModal(
+                              `Daftar Pegawai: ${item.category}`,
+                              `Kategori: ${groupCol?.name || groupByColId} = "${item.category}"`,
+                              groupStaff
+                            );
+                          }}
+                          className="hover:underline hover:text-emerald-700 font-bold cursor-pointer inline-block px-1.5 py-0.5 rounded hover:bg-emerald-50"
+                          title={`Klik untuk melihat ${item.count} pegawai`}
+                        >
+                          {item.count} entri
+                        </button>
+                      ) : (
+                        '0 entri'
+                      )}
                     </td>
 
                     <td className="px-4 py-3 text-right tabular-nums font-bold text-slate-900 font-mono">
@@ -288,7 +330,20 @@ export const PivotTable: React.FC<PivotTableProps> = ({ sheet }) => {
                   TOTAL KESELURUHAN ({pivotData.length} Kelompok)
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums">
-                  {totals.totalCount} entri
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleOpenStaffModal(
+                        'Total Seluruh Pegawai',
+                        `Total Seluruh Data (${sheet.rows.length} Pegawai)`,
+                        sheet.rows
+                      );
+                    }}
+                    className="hover:underline hover:text-emerald-800 font-bold cursor-pointer inline-block px-1.5 py-0.5 rounded hover:bg-emerald-50"
+                    title="Klik untuk melihat seluruh pegawai"
+                  >
+                    {totals.totalCount} entri
+                  </button>
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums text-emerald-800 text-sm font-mono">
                   {formatValue(totals.totalSum)}
@@ -304,6 +359,18 @@ export const PivotTable: React.FC<PivotTableProps> = ({ sheet }) => {
           </table>
         </div>
       </div>
+
+      {/* Staff List Modal */}
+      {staffModalData.isOpen && (
+        <StaffListModal
+          isOpen={staffModalData.isOpen}
+          onClose={() => setStaffModalData(prev => ({ ...prev, isOpen: false }))}
+          title={staffModalData.title}
+          subtitle={staffModalData.subtitle}
+          badgeText={staffModalData.badgeText}
+          staffList={staffModalData.staffList}
+        />
+      )}
     </div>
   );
 };

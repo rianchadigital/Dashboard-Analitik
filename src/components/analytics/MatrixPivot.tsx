@@ -13,6 +13,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { Sheet, RowData } from '../../types/sheet';
+import { StaffListModal } from '../Modals/StaffListModal';
 
 interface MatrixPivotProps {
   sheet: Sheet;
@@ -398,6 +399,29 @@ export const MatrixPivot: React.FC<MatrixPivotProps> = ({ sheet }) => {
   const [rowSortOrder, setRowSortOrder] = useState<'alpha_asc' | 'alpha_desc' | 'total_desc' | 'total_asc'>('alpha_asc');
   const [pageSize, setPageSize] = useState<number>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
+
+  // Modal state for clicking on count numbers to view employee names
+  const [staffModalData, setStaffModalData] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle?: string;
+    badgeText?: string;
+    staffList: RowData[];
+  }>({
+    isOpen: false,
+    title: '',
+    staffList: []
+  });
+
+  const handleOpenStaffModal = (title: string, subtitle: string, list: RowData[]) => {
+    setStaffModalData({
+      isOpen: true,
+      title,
+      subtitle,
+      badgeText: `${list.length} Orang Pegawai`,
+      staffList: list
+    });
+  };
 
   // Helper to extract value safely from row based on definition
   const getDimensionValue = (row: RowData, dimensionId: string): string => {
@@ -903,18 +927,60 @@ export const MatrixPivot: React.FC<MatrixPivotProps> = ({ sheet }) => {
                       {colKeys.map(c => {
                         const item = matrix[r]?.[c];
                         const style = getHeatmapStyle(item);
+                        const hasStaff = item && item.count > 0;
+
                         return (
                           <td 
                             key={c} 
-                            className="py-2.5 px-3.5 text-right border-r border-slate-100 font-mono text-slate-700"
+                            className="py-2 px-2.5 text-right border-r border-slate-100 font-mono text-slate-700"
                             style={style}
                           >
-                            {formatCell(item)}
+                            {hasStaff ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const cellStaff = activeRows.filter(
+                                    row => getDimensionValue(row, rowDimension) === r && getDimensionValue(row, colDimension) === c
+                                  );
+                                  handleOpenStaffModal(
+                                    `Daftar Pegawai: ${r} × ${c}`,
+                                    `${selectedRowLabel}: "${r}" • ${selectedColLabel}: "${c}"`,
+                                    cellStaff
+                                  );
+                                }}
+                                className="w-full text-right font-bold hover:underline hover:scale-105 transition-transform cursor-pointer px-1 py-0.5 rounded hover:bg-blue-100/80"
+                                title={`Klik untuk melihat ${item.count} pegawai pada "${r}" - "${c}"`}
+                              >
+                                {formatCell(item)}
+                              </button>
+                            ) : (
+                              <span className="text-slate-300">-</span>
+                            )}
                           </td>
                         );
                       })}
-                      <td className="py-2.5 px-4 font-bold text-blue-900 bg-blue-50/50 text-right font-mono">
-                        {formatCell(rTotal)}
+                      <td className="py-2 px-3 font-bold text-blue-900 bg-blue-50/50 text-right font-mono">
+                        {rTotal && rTotal.count > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const rowStaff = activeRows.filter(
+                                row => getDimensionValue(row, rowDimension) === r
+                              );
+                              handleOpenStaffModal(
+                                `Total Pegawai: ${r}`,
+                                `Kategori ${selectedRowLabel}: "${r}" (Total Seluruh Kolom)`,
+                                rowStaff
+                              );
+                            }}
+                            className="hover:underline hover:text-blue-950 cursor-pointer px-1 py-0.5 rounded hover:bg-blue-200/70 transition-colors"
+                            title={`Klik untuk melihat seluruh ${rTotal.count} pegawai pada baris "${r}"`}
+                          >
+                            {formatCell(rTotal)}
+                          </button>
+                        ) : (
+                          '-'
+                        )}
                       </td>
                     </tr>
                   );
@@ -926,13 +992,50 @@ export const MatrixPivot: React.FC<MatrixPivotProps> = ({ sheet }) => {
                 <td className="py-3 px-4 text-slate-900 border-r border-slate-200 sticky left-0 bg-slate-100 z-30">
                   TOTAL KESELURUHAN
                 </td>
-                {colKeys.map(c => (
-                  <td key={c} className="py-3 px-3.5 text-right border-r border-slate-200 text-slate-900 font-mono">
-                    {formatCell(colTotals[c])}
-                  </td>
-                ))}
+                {colKeys.map(c => {
+                  const cTotal = colTotals[c];
+                  const hasStaff = cTotal && cTotal.count > 0;
+                  return (
+                    <td key={c} className="py-3 px-3.5 text-right border-r border-slate-200 text-slate-900 font-mono">
+                      {hasStaff ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const colStaff = activeRows.filter(
+                              row => getDimensionValue(row, colDimension) === c
+                            );
+                            handleOpenStaffModal(
+                              `Total Pegawai: ${c}`,
+                              `Kategori ${selectedColLabel}: "${c}" (Total Seluruh Baris)`,
+                              colStaff
+                            );
+                          }}
+                          className="hover:underline hover:text-blue-800 cursor-pointer px-1 py-0.5 rounded hover:bg-slate-200 transition-colors"
+                          title={`Klik untuk melihat seluruh ${cTotal.count} pegawai pada kolom "${c}"`}
+                        >
+                          {formatCell(cTotal)}
+                        </button>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                  );
+                })}
                 <td className="py-3 px-4 text-right bg-blue-600 text-white font-black text-sm font-mono">
-                  {formatCell(grandTotal)}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleOpenStaffModal(
+                        'Total Seluruh Pegawai Matriks Pivot',
+                        `Kombinasi ${selectedRowLabel} × ${selectedColLabel} (${grandTotal.count} Pegawai)`,
+                        activeRows
+                      );
+                    }}
+                    className="hover:underline hover:text-blue-100 cursor-pointer px-1 py-0.5 rounded hover:bg-blue-700 font-black transition-colors"
+                    title={`Klik untuk melihat seluruh ${grandTotal.count} pegawai`}
+                  >
+                    {formatCell(grandTotal)}
+                  </button>
                 </td>
               </tr>
             </tfoot>
@@ -969,6 +1072,18 @@ export const MatrixPivot: React.FC<MatrixPivotProps> = ({ sheet }) => {
           </div>
         )}
       </div>
+
+      {/* PopUP Modal for Staff List upon clicking cell count */}
+      {staffModalData.isOpen && (
+        <StaffListModal
+          isOpen={staffModalData.isOpen}
+          onClose={() => setStaffModalData(prev => ({ ...prev, isOpen: false }))}
+          title={staffModalData.title}
+          subtitle={staffModalData.subtitle}
+          badgeText={staffModalData.badgeText}
+          staffList={staffModalData.staffList}
+        />
+      )}
     </div>
   );
 };
