@@ -16,7 +16,12 @@ import {
   TrendingUp,
   PieChart,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  Package,
+  Server,
+  HelpCircle,
+  Check,
+  X
 } from 'lucide-react';
 import { Sheet, ActiveTab } from '../types/sheet';
 
@@ -64,6 +69,7 @@ export const Header: React.FC<HeaderProps> = ({
   lastSynced,
 }) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showDeployGuide, setShowDeployGuide] = useState(false);
   const activeSheet = sheets.find(s => s.id === activeSheetId);
 
   const getSheetIcon = (iconName?: string) => {
@@ -181,7 +187,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
             {showExportMenu && (
               <div 
-                className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50 text-xs text-slate-700"
+                className="absolute right-0 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50 text-xs text-slate-700"
                 onClick={() => setShowExportMenu(false)}
               >
                 <button
@@ -198,9 +204,31 @@ export const Header: React.FC<HeaderProps> = ({
                   <span>Unduh Format JSON</span>
                   <span className="text-[10px] text-slate-400 font-mono">.json</span>
                 </button>
+                <div className="border-t border-slate-100 my-1"></div>
+                <a
+                  href="./hostinger_public_html.zip"
+                  download="hostinger_public_html.zip"
+                  className="w-full text-left px-3 py-2 hover:bg-emerald-50 text-emerald-800 flex items-center justify-between font-semibold"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Paket Hostinger Siap Pakai</span>
+                  </span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1 rounded font-mono">.zip</span>
+                </a>
               </div>
             )}
           </div>
+
+          {/* Dedicated Hostinger Deploy Button */}
+          <button
+            id="btn-hostinger-deploy"
+            onClick={() => setShowDeployGuide(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg shadow-xs transition-colors"
+          >
+            <Server className="w-3.5 h-3.5" />
+            <span>Deploy Hostinger</span>
+          </button>
 
           {/* Reset sample button */}
           <button
@@ -305,6 +333,101 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Hostinger Deploy Guide Modal */}
+      {showDeployGuide && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-emerald-700 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                  <Server className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">Solusi Deploy Hostinger (Bebas Layar Putih)</h3>
+                  <p className="text-[11px] text-emerald-100">Paket file siap saji khusus direktori public_html Hostinger</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowDeployGuide(false)}
+                className="p-1 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5 text-xs text-slate-700 max-h-[75vh] overflow-y-auto">
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+                <HelpCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-[11px] leading-relaxed text-amber-900">
+                  <strong>Penyebab Layar Putih Sebelumnya:</strong> Hostinger Git secara bawaan menarik source code mentah (<code className="bg-amber-100 px-1 py-0.5 rounded text-amber-800">src/main.tsx</code>) yang tidak bisa dijalankan oleh browser. Web butuh hasil kompilasi produksi (<code className="bg-amber-100 px-1 py-0.5 rounded text-amber-800">index.html</code> + <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-800">assets/</code>).
+                </div>
+              </div>
+
+              {/* Step 1: Download */}
+              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-slate-900 flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">1</span>
+                    Unduh Paket Siap Deploy (.ZIP)
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono">~275 KB</span>
+                </div>
+                <p className="text-[11px] text-slate-600 mb-3">
+                  Paket ini sudah berisi <code className="text-slate-800 font-semibold">index.html</code>, folder <code className="text-slate-800 font-semibold">assets/</code>, dan konfigurasi <code className="text-slate-800 font-semibold">.htaccess</code> Hostinger.
+                </p>
+                <a
+                  href="./hostinger_public_html.zip"
+                  download="hostinger_public_html.zip"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-xs transition-colors"
+                >
+                  <Package className="w-4 h-4" />
+                  <span>Klik Untuk Download: hostinger_public_html.zip</span>
+                </a>
+              </div>
+
+              {/* Step 2: Extract in Hostinger */}
+              <div className="border border-slate-200 rounded-xl p-4 space-y-2">
+                <span className="font-bold text-slate-900 flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">2</span>
+                  Upload & Ekstrak di File Manager Hostinger
+                </span>
+                <ol className="list-decimal list-inside space-y-1.5 text-[11px] text-slate-600 pl-1">
+                  <li>Buka <strong>hPanel Hostinger</strong> ➔ <strong>File Manager</strong>.</li>
+                  <li>Buka folder:
+                    <div className="my-1.5 p-2 bg-slate-100 rounded-lg font-mono text-[10px] text-slate-800 select-all border border-slate-200 break-all">
+                      /domains/analitikpegawaipkmkss.puskesmasseribuselatan.com/public_html
+                    </div>
+                  </li>
+                  <li>Hapus file lama yang ada di dalam <code className="font-semibold">public_html</code> (jika ada file mentah dari Git sebelumnya).</li>
+                  <li>Upload file <code className="font-semibold text-emerald-700">hostinger_public_html.zip</code> yang baru Anda download.</li>
+                  <li>Klik kanan file zip tersebut di Hostinger ➔ Pilih <strong>Extract</strong> (ekstrak di folder yang sama / titik <code className="bg-slate-200 px-1 rounded">.</code>).</li>
+                </ol>
+              </div>
+
+              {/* Step 3: Finished */}
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5">
+                <Check className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                <div className="text-[11px] text-emerald-900 leading-relaxed">
+                  <strong>Selesai! Tidak Perlu Node.js Server:</strong> Seluruh 158 data master staf puskesmas sudah tertanam langsung (*pre-embedded*). Fitur sinkronisasi Google Sheets juga sudah dilengkapi modul *client-side*, sehingga web berjalan 100% cepat dan stabil di shared hosting biasa!
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+              <button
+                onClick={() => setShowDeployGuide(false)}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-xl text-xs transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

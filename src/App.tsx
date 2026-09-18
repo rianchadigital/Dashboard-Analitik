@@ -8,6 +8,7 @@ import { Trash2, AlertTriangle } from 'lucide-react';
 import { Sheet, ActiveTab, FilterCondition, ColumnDef, RowData } from './types/sheet';
 import { DEFAULT_SHEETS } from './data/defaultSheets';
 import { exportSheetToCsv, recalculateRow } from './utils/analytics';
+import { syncGoogleSheetData } from './utils/googleSheetSync';
 import { Header } from './components/Header';
 import { DataSheet } from './components/DataSheet';
 import { AnalyticsWorkspace } from './components/analytics/AnalyticsWorkspace';
@@ -78,19 +79,18 @@ export default function App() {
   const handleSyncGoogleSheet = async () => {
     try {
       setIsSyncing(true);
-      const res = await fetch('/api/sync-google-sheet');
-      const data = await res.json();
+      const data = await syncGoogleSheetData();
       if (data.success && data.sheet) {
         const existingIdx = sheets.findIndex(s => s.id === 'sheet-master-puskesmas');
         let nextSheets: Sheet[];
         if (existingIdx >= 0) {
-          nextSheets = sheets.map(s => s.id === 'sheet-master-puskesmas' ? data.sheet : s);
+          nextSheets = sheets.map(s => s.id === 'sheet-master-puskesmas' ? data.sheet! : s);
         } else {
-          nextSheets = [data.sheet, ...sheets];
+          nextSheets = [data.sheet!, ...sheets];
         }
         updateSheetsState(nextSheets);
         setSyncToast({
-          message: `Berhasil sinkronisasi Google Sheets: ${data.rowCount} data pegawai termutakhir.`,
+          message: `Berhasil sinkronisasi data SDMK: ${data.rowCount || data.sheet.rows.length} pegawai termutakhir.`,
           type: 'success'
         });
       } else {
