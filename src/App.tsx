@@ -17,31 +17,49 @@ import { AddColumnModal } from './components/Modals/AddColumnModal';
 import { ImportCsvModal } from './components/Modals/ImportCsvModal';
 import { FilterModal } from './components/Modals/FilterModal';
 
-const STORAGE_KEY = 'sheet_analitik_state_v1';
+const STORAGE_KEY = 'sheet_analitik_sdmk_v4';
+
+// Validasi apakah baris data tergeser / terkorupsi dari cache versi terdahulu
+export function isSheetDataCorrupted(sheet: Sheet): boolean {
+  if (!sheet || !Array.isArray(sheet.rows) || sheet.rows.length === 0) return false;
+  let corruptedCount = 0;
+  const sample = sheet.rows.slice(0, 15);
+  for (const r of sample) {
+    const nip = String(r.nip || '');
+    const unit = String(r.tempat_tugas || '');
+    const jab = String(r.jabatan || '');
+    // NIP berisi gelar dokter / teks nama
+    if (/dr\.|drg\.|dokter/i.test(nip)) corruptedCount++;
+    // tempat_tugas tertukar dengan formasi jabatan
+    if (/dokter|perawat|bidan|subbagian|ahli muda|pelaksana/i.test(unit) && !unit.toLowerCase().includes('puskesmas')) corruptedCount++;
+    // unit sama persis dengan jabatan dan bukan puskesmas
+    if (unit && jab && unit === jab && !unit.toLowerCase().includes('puskesmas')) corruptedCount++;
+  }
+  return corruptedCount >= 2;
+}
 
 export default function App() {
-  // Initialize Sheets from LocalStorage or Default Templates
+  // Initialize Sheets from LocalStorage with Auto-Healing or Default Templates
   const [sheets, setSheets] = useState<Sheet[]>(() => {
     try {
+      // Bersihkan key legacy yang berpotensi menyimpan cache baris tergeser
+      ['sheet_analitik_state_v1', 'sheet_analitik_state_v2', 'sheet_analitik_state_v3'].forEach(k => {
+        try { localStorage.removeItem(k); } catch {}
+      });
+
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Remove legacy unwanted sheets (penjualan, omset, anggaran, marketing)
-          const cleaned = parsed.filter((s: Sheet) => {
-            const id = (s.id || '').toLowerCase();
-            const name = (s.name || '').toLowerCase();
-            if (['sheet-sales', 'sheet-budget', 'sheet-expenses', 'sheet-marketing', 'sheet-campaigns'].includes(id)) return false;
-            if (name.includes('penjualan') || name.includes('omset') || name.includes('anggaran') || name.includes('biaya operasional') || name.includes('kinerja marketing') || name.includes('kampanye')) return false;
-            return true;
-          });
-
-          if (cleaned.length > 0) {
-            const hasMaster = cleaned.some((s: Sheet) => s.id === 'sheet-master-puskesmas');
-            const result = hasMaster ? cleaned : [DEFAULT_SHEETS[0], ...cleaned];
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(result));
-            return result;
+          // Cek apakah data master tergeser/terkorupsi
+          const masterSheet = parsed.find((s: Sheet) => s.id === 'sheet-master-puskesmas');
+          if (masterSheet && isSheetDataCorrupted(masterSheet)) {
+            console.warn("Mendeteksi data master SDMK terkorupsi di cache browser. Memulihkan dengan master data resmi...");
+            const healed = parsed.map((s: Sheet) => s.id === 'sheet-master-puskesmas' ? DEFAULT_SHEETS[0] : s);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(healed));
+            return healed;
           }
+          return parsed;
         }
       }
     } catch (e) {
@@ -259,15 +277,17 @@ export default function App() {
     handleUpdateActiveSheet({ ...activeSheet, rows: updatedRows });
   }, [activeSheet, handleUpdateActiveSheet]);
 
-  // Reset to Default Sample Sheets
+  // Reset / Pulihkan ke Data Bawaan Resmi Master SDMK
   const handleResetDefaults = () => {
-    localStorage.removeItem(STORAGE_KEY);
+    ['sheet_analitik_state_v1', 'sheet_analitik_state_v2', 'sheet_analitik_state_v3', STORAGE_KEY].forEach(k => {
+      try { localStorage.removeItem(k); } catch {}
+    });
     setSheets(DEFAULT_SHEETS);
     setActiveSheetId(DEFAULT_SHEETS[0].id);
     setHistory([DEFAULT_SHEETS]);
     setHistoryIndex(0);
     setFiltersMap({});
-    setSyncToast({ message: 'Data templat resmi master SDMK berhasil dimuat ulang.', type: 'success' });
+    setSyncToast({ message: 'Data master resmi SDMK berhasil dipulihkan & diselaraskan sesuai data resmi.', type: 'success' });
     setTimeout(() => setSyncToast(null), 4000);
   };
 

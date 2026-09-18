@@ -56,6 +56,8 @@ export const GrafikVisual: React.FC<GrafikVisualProps> = ({ sheet }) => {
   const [filterUnit, setFilterUnit] = useState('ALL');
   const [filterTenaga, setFilterTenaga] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState('ALL');
+  const [statusChartMode, setStatusChartMode] = useState<'bar' | 'pie'>('bar');
+  const [unitChartMode, setUnitChartMode] = useState<'stacked' | 'grouped'>('stacked');
 
   // Filtered rows
   const activeRows = useMemo(() => {
@@ -115,18 +117,42 @@ export const GrafikVisual: React.FC<GrafikVisualProps> = ({ sheet }) => {
     };
   }, [activeRows]);
 
-  // 1. Status Kepegawaian Pie Data
-  const statusPieData = useMemo(() => {
+  // 1. Status Kepegawaian Data (Bar & Donut)
+  const statusBarData = useMemo(() => {
     const counts: Record<string, number> = {};
     activeRows.forEach(r => {
-      const s = r.status_kepegawaian || 'Lainnya';
+      let s = (r.status_kepegawaian || 'Lainnya').trim();
+      if (s === 'PPPK PW') s = 'PPPK';
       counts[s] = (counts[s] || 0) + 1;
     });
-    return Object.entries(counts).map(([name, value]) => ({
-      name,
-      value,
-      color: PALETTE.status[name as keyof typeof PALETTE.status] || '#94a3b8'
-    })).sort((a, b) => b.value - a.value);
+
+    const total = activeRows.length || 1;
+    const order = ['PNS', 'PPPK', 'NON PNS', 'PJLP', 'CPNS', 'Lainnya'];
+
+    return Object.entries(counts).map(([name, count]) => {
+      const pct = ((count / total) * 100).toFixed(1);
+      let color = PALETTE.status[name as keyof typeof PALETTE.status] || '#94a3b8';
+      let category = 'Aparatur Sipil Negara (ASN)';
+      if (name === 'NON PNS') category = 'Non-PNS / Kontrak';
+      else if (name === 'PJLP') category = 'Penyedia Jasa Lainnya (PJLP)';
+      else if (name === 'CPNS') category = 'Calon Pegawai Negeri';
+      else if (name === 'Lainnya') category = 'Lainnya';
+
+      return {
+        name,
+        count,
+        value: count, // for PieChart
+        pct: Number(pct),
+        pctStr: `${pct}%`,
+        color,
+        category
+      };
+    }).sort((a, b) => {
+      const idxA = order.indexOf(a.name);
+      const idxB = order.indexOf(b.name);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      return b.count - a.count;
+    });
   }, [activeRows]);
 
   // 2. Jenis Tenaga Pie Data
@@ -162,24 +188,84 @@ export const GrafikVisual: React.FC<GrafikVisualProps> = ({ sheet }) => {
     return Object.values(groups);
   }, [activeRows]);
 
-  // 4. Tempat Tugas Distribution
-  const unitData = useMemo(() => {
-    const counts: Record<string, { name: string; shortName: string; nakes: number; penunjang: number; total: number }> = {};
-    activeRows.forEach(r => {
-      const u = r.tempat_tugas || 'Lainnya';
-      if (!counts[u]) {
-        let short = u;
-        if (u.includes('Pari')) short = 'Pustu Pari';
-        else if (u.includes('Lancang')) short = 'Pustu Lancang';
-        else if (u.includes('Untung Jawa')) short = 'Pustu Untung Jawa';
-        else if (u.includes('Seribu')) short = 'Puskesmas Induk';
-        counts[u] = { name: u, shortName: short, nakes: 0, penunjang: 0, total: 0 };
-      }
-      if (r.jenis_tenaga === 'Tenaga Kesehatan') counts[u].nakes++;
-      else counts[u].penunjang++;
-      counts[u].total++;
+  // 4. Sebaran Pegawai per Unit Tugas berdasarkan Status Kepegawaian
+  const unitStatusData = useMemo(() => {
+    const counts: Record<string, {
+      name: string;
+      shortName: string;
+      PNS: number;
+      PPPK: number;
+      'NON PNS': number;
+      PJLP: number;
+      CPNS: number;
+      Lainnya: number;
+      total: number;
+    }> = {};
+
+    const standardUnits = [
+      { id: 'Puskesmas Kepulauan Seribu Selatan', short: 'Puskesmas Induk' },
+      { id: 'Puskesmas Pembantu Pulau Pari', short: 'Pustu P. Pari' },
+      { id: 'Puskesmas Pembantu Pulau Lancang', short: 'Pustu P. Lancang' },
+      { id: 'Puskesmas Pembantu Pulau Untung Jawa', short: 'Pustu P. Untung Jawa' }
+    ];
+
+    standardUnits.forEach(item => {
+      counts[item.id] = {
+        name: item.id,
+        shortName: item.short,
+        PNS: 0,
+        PPPK: 0,
+        'NON PNS': 0,
+        PJLP: 0,
+        CPNS: 0,
+        Lainnya: 0,
+        total: 0
+      };
     });
-    return Object.values(counts).sort((a, b) => b.total - a.total);
+
+    activeRows.forEach(r => {
+      let u = (r.tempat_tugas || '').trim();
+      let matchedKey = 'Puskesmas Kepulauan Seribu Selatan';
+
+      if (u.includes('Pari')) matchedKey = 'Puskesmas Pembantu Pulau Pari';
+      else if (u.includes('Lancang')) matchedKey = 'Puskesmas Pembantu Pulau Lancang';
+      else if (u.includes('Untung Jawa')) matchedKey = 'Puskesmas Pembantu Pulau Untung Jawa';
+      else if (u.includes('Seribu') || u.includes('Induk') || u.includes('Selatan')) matchedKey = 'Puskesmas Kepulauan Seribu Selatan';
+
+      if (!counts[matchedKey]) {
+        counts[matchedKey] = {
+          name: matchedKey,
+          shortName: matchedKey,
+          PNS: 0,
+          PPPK: 0,
+          'NON PNS': 0,
+          PJLP: 0,
+          CPNS: 0,
+          Lainnya: 0,
+          total: 0
+        };
+      }
+
+      let st = (r.status_kepegawaian || '').trim();
+      if (st === 'PPPK PW') st = 'PPPK';
+
+      if (st.includes('PNS') && !st.includes('NON') && !st.includes('CPNS')) {
+        counts[matchedKey].PNS++;
+      } else if (st.includes('PPPK')) {
+        counts[matchedKey].PPPK++;
+      } else if (st.includes('NON PNS') || st.includes('HONOR') || st.includes('KONTRAK')) {
+        counts[matchedKey]['NON PNS']++;
+      } else if (st.includes('PJLP')) {
+        counts[matchedKey].PJLP++;
+      } else if (st.includes('CPNS')) {
+        counts[matchedKey].CPNS++;
+      } else {
+        counts[matchedKey].Lainnya++;
+      }
+      counts[matchedKey].total++;
+    });
+
+    return Object.values(counts);
   }, [activeRows]);
 
   // 5. Jenjang Pendidikan
@@ -221,13 +307,14 @@ export const GrafikVisual: React.FC<GrafikVisualProps> = ({ sheet }) => {
     csv += `Staf Layanan 24 Jam,${kpis.shift24}\n\n`;
 
     csv += 'KOMPOSISI STATUS KEPEGAWAIAN\n';
-    statusPieData.forEach(d => {
-      csv += `"${d.name}",${d.value}\n`;
+    statusBarData.forEach(d => {
+      csv += `"${d.name}",${d.count} (${d.pctStr}),${d.category}\n`;
     });
 
-    csv += '\nDISTRIBUSI UNIT TUGAS\n';
-    unitData.forEach(d => {
-      csv += `"${d.name}",Nakes: ${d.nakes},Penunjang: ${d.penunjang},Total: ${d.total}\n`;
+    csv += '\nSEBARAN PEGAWAI PER UNIT TUGAS BERDASARKAN STATUS KEPEGAWAIAN\n';
+    csv += 'Unit Tugas,PNS,PPPK,NON PNS,PJLP,CPNS,Total\n';
+    unitStatusData.forEach(d => {
+      csv += `"${d.name}",${d.PNS},${d.PPPK},${d['NON PNS']},${d.PJLP},${d.CPNS},${d.total}\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -346,39 +433,126 @@ export const GrafikVisual: React.FC<GrafikVisualProps> = ({ sheet }) => {
 
       {/* Row 1 Charts: Status Kepegawaian & Proporsi Nakes */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Status Kepegawaian Donut */}
+        {/* Status Kepegawaian Bar Chart (with toggle to Donut) */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 mb-1">
-              Komposisi Status Kepegawaian
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Distribusi PNS, PPPK, NON-PNS, dan Tenaga Alih Daya (PJLP)
-            </p>
+          <div className="flex items-start justify-between gap-2 mb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900">
+                  Komposisi Status Kepegawaian
+                </h3>
+                <span className="px-2 py-0.5 text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
+                  Grafik Batang
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Distribusi PNS, PPPK, NON-PNS, PJLP, dan CPNS
+              </p>
+            </div>
+
+            {/* Toggle Mode */}
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+              <button
+                type="button"
+                onClick={() => setStatusChartMode('bar')}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-medium transition-all ${
+                  statusChartMode === 'bar'
+                    ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Tampilkan Grafik Batang"
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                <span>Batang</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusChartMode('pie')}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-medium transition-all ${
+                  statusChartMode === 'pie'
+                    ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Tampilkan Grafik Donut"
+              >
+                <PieIcon className="w-3.5 h-3.5" />
+                <span>Donut</span>
+              </button>
+            </div>
           </div>
 
-          <div className="h-60">
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={statusPieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={85}
-                  paddingAngle={3}
-                  dataKey="value"
-                >
-                  {statusPieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  formatter={(val: any) => [`${val} Orang (${((Number(val || 0) / kpis.total) * 100).toFixed(1)}%)`, 'Jumlah']}
-                />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
-              </PieChart>
+              {statusChartMode === 'bar' ? (
+                <BarChart data={statusBarData} margin={{ top: 15, right: 15, left: -15, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }} />
+                  <YAxis tick={{ fontSize: 11, fill: '#64748b' }} allowDecimals={false} />
+                  <Tooltip 
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-lg text-xs space-y-1">
+                            <div className="flex items-center gap-2 font-bold text-slate-900">
+                              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: data.color }} />
+                              <span>{data.name}</span>
+                            </div>
+                            <div className="text-slate-600">
+                              Jumlah: <strong className="text-slate-900">{data.count} Orang</strong>
+                            </div>
+                            <div className="text-slate-600">
+                              Persentase: <strong className="text-emerald-600">{data.pctStr}</strong>
+                            </div>
+                            <div className="text-[10px] text-slate-500 border-t border-slate-100 pt-1 mt-1">
+                              {data.category}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                    {statusBarData.map((entry, index) => (
+                      <Cell key={`status-bar-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              ) : (
+                <PieChart>
+                  <Pie
+                    data={statusBarData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={85}
+                    paddingAngle={3}
+                    dataKey="count"
+                  >
+                    {statusBarData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(val: any) => [`${val} Orang (${((Number(val || 0) / kpis.total) * 100).toFixed(1)}%)`, 'Jumlah']}
+                  />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
+                </PieChart>
+              )}
             </ResponsiveContainer>
+          </div>
+
+          {/* Mini status pills */}
+          <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-slate-100">
+            {statusBarData.map(st => (
+              <div key={st.name} className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 border border-slate-200/80 rounded-md text-[11px]">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: st.color }} />
+                <span className="font-semibold text-slate-800">{st.name}:</span>
+                <span className="text-slate-600 font-bold">{st.count}</span>
+                <span className="text-slate-600 text-[10px]">({st.pctStr})</span>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -451,30 +625,150 @@ export const GrafikVisual: React.FC<GrafikVisualProps> = ({ sheet }) => {
           </div>
         </div>
 
-        {/* Sebaran Unit Tugas */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-          <h3 className="text-sm font-bold text-slate-900 mb-1">
-            Sebaran Pegawai per Unit Tugas
-          </h3>
-          <p className="text-xs text-slate-500 mb-4">
-            Alokasi tenaga kesehatan dan penunjang di tiap fasilitas
-          </p>
+        {/* Sebaran Unit Tugas Berdasarkan Status Kepegawaian */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
+          <div className="flex items-start justify-between gap-2 mb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900">
+                  Sebaran Pegawai per Unit Tugas
+                </h3>
+                <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
+                  Status Kepegawaian
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Sebaran PNS, PPPK, NON PNS, PJLP, dan CPNS per fasilitas
+              </p>
+            </div>
 
-          <div className="h-60">
+            {/* Toggle Stacked vs Grouped */}
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+              <button
+                type="button"
+                onClick={() => setUnitChartMode('stacked')}
+                className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                  unitChartMode === 'stacked'
+                    ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Tampilkan Batang Bertumpuk (Total Pegawai)"
+              >
+                Bertumpuk
+              </button>
+              <button
+                type="button"
+                onClick={() => setUnitChartMode('grouped')}
+                className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                  unitChartMode === 'grouped'
+                    ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Tampilkan Berdampingan"
+              >
+                Berdampingan
+              </button>
+            </div>
+          </div>
+
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={unitData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+              <BarChart data={unitStatusData} margin={{ top: 15, right: 15, left: -15, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="shortName" tick={{ fontSize: 11, fill: '#64748b' }} />
+                <XAxis dataKey="shortName" tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }} />
                 <YAxis tick={{ fontSize: 11, fill: '#64748b' }} allowDecimals={false} />
                 <Tooltip 
-                  formatter={(val: any) => [`${val} Orang`, 'Jumlah']}
-                  contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      const totalUnit = payload.reduce((sum, entry) => sum + (Number(entry.value) || 0), 0);
+                      return (
+                        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-lg text-xs space-y-1.5 min-w-[190px]">
+                          <div className="font-bold text-slate-900 border-b border-slate-100 pb-1">
+                            {label}
+                            <span className="ml-1 text-[11px] text-slate-500 font-normal">
+                              ({totalUnit} Pegawai)
+                            </span>
+                          </div>
+                          {payload.map((entry) => (
+                            <div key={entry.name} className="flex items-center justify-between gap-3 text-slate-700">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                                <span>{entry.name}:</span>
+                              </div>
+                              <span className="font-bold">{entry.value} org</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
                 />
-                <Legend wrapperStyle={{ fontSize: '11px' }} />
-                <Bar dataKey="nakes" name="Tenaga Kesehatan" stackId="a" fill="#059669" />
-                <Bar dataKey="penunjang" name="Tenaga Penunjang" stackId="a" fill="#64748b" radius={[4, 4, 0, 0]} />
+                <Legend 
+                  wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} 
+                  iconType="circle"
+                />
+                <Bar 
+                  dataKey="PNS" 
+                  name="PNS" 
+                  fill="#0284c7" 
+                  stackId={unitChartMode === 'stacked' ? 'st' : undefined} 
+                />
+                <Bar 
+                  dataKey="PPPK" 
+                  name="PPPK" 
+                  fill="#059669" 
+                  stackId={unitChartMode === 'stacked' ? 'st' : undefined} 
+                />
+                <Bar 
+                  dataKey="NON PNS" 
+                  name="NON PNS" 
+                  fill="#f59e0b" 
+                  stackId={unitChartMode === 'stacked' ? 'st' : undefined} 
+                />
+                <Bar 
+                  dataKey="PJLP" 
+                  name="PJLP" 
+                  fill="#8b5cf6" 
+                  stackId={unitChartMode === 'stacked' ? 'st' : undefined} 
+                />
+                <Bar 
+                  dataKey="CPNS" 
+                  name="CPNS" 
+                  fill="#ec4899" 
+                  stackId={unitChartMode === 'stacked' ? 'st' : undefined}
+                  radius={unitChartMode === 'stacked' ? [4, 4, 0, 0] : undefined}
+                />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+
+          {/* Cross-tabulation mini matrix */}
+          <div className="mt-3 pt-3 border-t border-slate-100 overflow-x-auto">
+            <table className="w-full text-[11px] text-left">
+              <thead>
+                <tr className="text-slate-500 border-b border-slate-200/60">
+                  <th className="pb-1 font-medium">Unit Fasilitas</th>
+                  <th className="pb-1 text-center font-medium text-blue-700">PNS</th>
+                  <th className="pb-1 text-center font-medium text-emerald-700">PPPK</th>
+                  <th className="pb-1 text-center font-medium text-amber-700">NON PNS</th>
+                  <th className="pb-1 text-center font-medium text-purple-700">PJLP</th>
+                  <th className="pb-1 text-right font-medium text-slate-800">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {unitStatusData.map(u => (
+                  <tr key={u.name} className="hover:bg-slate-50/80">
+                    <td className="py-1 font-medium text-slate-800">{u.shortName}</td>
+                    <td className="py-1 text-center text-blue-700 font-semibold">{u.PNS}</td>
+                    <td className="py-1 text-center text-emerald-700 font-semibold">{u.PPPK}</td>
+                    <td className="py-1 text-center text-amber-700 font-semibold">{u['NON PNS']}</td>
+                    <td className="py-1 text-center text-purple-700 font-semibold">{u.PJLP}</td>
+                    <td className="py-1 text-right font-bold text-slate-900">{u.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

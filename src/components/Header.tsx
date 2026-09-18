@@ -230,14 +230,15 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Deploy Hostinger</span>
           </button>
 
-          {/* Reset sample button */}
+          {/* Reset / Pulihkan sample button */}
           <button
             id="btn-reset-sample"
             onClick={onResetDefaults}
-            title="Muat Ulang Contoh Data Bawaan"
-            className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200"
+            title="Pulihkan & Selaraskan Data Resmi Master SDMK (Reset Cache)"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+            <span className="hidden sm:inline">Pulihkan Data</span>
           </button>
         </div>
       </div>
