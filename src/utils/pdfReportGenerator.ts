@@ -1,21 +1,23 @@
 // Generator Laporan Resmi & Cetak PDF Tab Baru
 // Dilengkapi Kop Surat Resmi Pemprov DKI Jakarta (Logo Jaya Raya & Logo Puskesmas Kesehatan)
 
-export const SVG_LOGO_DKI_RAW = `<svg viewBox="0 0 200 240" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:72px;height:86px;display:block;">
-  <path d="M12 18 H188 L180 170 C180 206 100 234 100 234 C100 234 20 206 20 170 Z" fill="#FFCC00" stroke="#E6B800" stroke-width="2"/>
-  <polygon points="12,18 2,6 26,18" fill="#FFCC00"/>
-  <polygon points="188,18 198,6 174,18" fill="#FFCC00"/>
-  <path d="M22 24 H178 V64 H22 Z" fill="#FFFFFF"/>
-  <text x="100" y="52" text-anchor="middle" fill="#E60000" font-size="21" font-weight="900" font-family="'Times New Roman', serif" letter-spacing="3.5">JAYA RAYA</text>
+export const DRIVE_FOLDER_URL = 'https://drive.google.com/drive/u/0/folders/1ug3olhhWiIbAwqGjwaqrh1tcjEow_SLD';
+
+export const SVG_LOGO_DKI_RAW = `<svg viewBox="0 0 200 240" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:72px;height:86px;display:block;margin:0 auto;">
+  <path d="M10 22 H190 L180 168 C180 206 100 234 100 234 C100 234 20 206 20 168 Z" fill="#FFCC00" stroke="#E6B800" stroke-width="2"/>
+  <polygon points="10,22 2,10 24,22" fill="#FFCC00"/>
+  <polygon points="190,22 198,10 176,22" fill="#FFCC00"/>
+  <path d="M20 26 H180 V64 H20 Z" fill="#DC2626"/>
+  <text x="100" y="51" text-anchor="middle" fill="#FFD700" font-size="21" font-weight="900" font-family="'Arial Black', Arial, sans-serif" letter-spacing="3">JAYA RAYA</text>
   <path d="M26 66 H174 V166 C174 198 100 222 100 222 C100 222 26 198 26 166 Z" fill="#FFCC00"/>
-  <path d="M34 94 H52 V78 H80 V68 C80 68 100 58 100 58 C100 58 120 68 120 68 V78 H148 V94 H166 V162 C166 190 100 214 100 214 C100 214 34 190 34 162 Z" fill="#0055A5"/>
+  <path d="M34 94 H52 V78 H80 V68 C80 68 100 58 100 58 C100 58 120 68 120 68 V78 H148 V94 H166 V162 C166 190 100 214 100 214 C100 214 34 190 34 162 Z" fill="#004F9E"/>
   <polygon points="74,148 126,148 120,140 80,140" fill="#FFFFFF"/>
   <rect x="80" y="148" width="40" height="4" fill="#E2E8F0"/>
   <rect x="74" y="152" width="52" height="6" fill="#CBD5E1"/>
   <polygon points="95,140 105,140 103,72 97,72" fill="#FFFFFF"/>
   <rect x="94" y="70" width="12" height="3" fill="#FFFFFF"/>
   <polygon points="92,70 108,70 106,66 94,66" fill="#FFFFFF"/>
-  <path d="M100 52 C95 58 96 62 97 66 H103 C104 62 105 58 100 52 Z" fill="#E60000"/>
+  <path d="M100 52 C95 58 96 62 97 66 H103 C104 62 105 58 100 52 Z" fill="#DC2626"/>
   <path d="M100 55 C98 59 98 62 99 66 H101 C102 62 102 59 100 55 Z" fill="#FFCC00"/>
   <g fill="#FFCC00" stroke="#B8860B" stroke-width="0.8">
     <path d="M96 182 C70 180 44 150 44 110" stroke="#FFCC00" stroke-width="2.5" fill="none"/>
@@ -89,7 +91,12 @@ export function generateKopSuratHtml(): string {
         <tr>
           <!-- Logo Jaya Raya DKI Jakarta (Kiri) -->
           <td style="width: 85px; vertical-align: middle; text-align: center; border: none; padding: 0 10px 0 0;">
-            ${SVG_LOGO_DKI_RAW}
+            <img 
+              src="/images/logo-dki.png" 
+              alt="Logo Jaya Raya DKI Jakarta" 
+              style="max-height:86px; max-width:86px; object-fit:contain; display:block; margin:0 auto;" 
+              onerror="this.onerror=null; this.src='/images/logo-dki.svg';"
+            />
           </td>
 
           <!-- Teks Kop Surat Resmi (Tengah) -->
@@ -116,7 +123,11 @@ export function generateKopSuratHtml(): string {
 
           <!-- Logo Puskesmas Kesehatan (Kanan) -->
           <td style="width: 85px; vertical-align: middle; text-align: center; border: none; padding: 0 0 0 10px;">
-            ${SVG_LOGO_PUSKESMAS_RAW}
+            <img 
+              src="/images/logo-puskesmas.svg" 
+              alt="Logo Puskesmas Kesehatan" 
+              style="max-height:86px; max-width:86px; object-fit:contain; display:block; margin:0 auto;" 
+            />
           </td>
         </tr>
       </table>
@@ -167,6 +178,7 @@ export function printReportInNewTab(options: ReportOptions) {
 <html lang="id">
 <head>
   <meta charset="UTF-8">
+  <base href="${typeof window !== 'undefined' ? window.location.origin : ''}/">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${options.title} - Puskesmas Kepulauan Seribu Selatan</title>
   <style>

@@ -378,6 +378,9 @@ Tolong berikan hasil dalam format JSON yang valid dengan struktur berikut:
     }
   });
 
+  // Serve public assets explicitly
+  app.use(express.static(path.join(process.cwd(), "public")));
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

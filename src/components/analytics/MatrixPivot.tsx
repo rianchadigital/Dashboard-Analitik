@@ -663,7 +663,7 @@ export const MatrixPivot: React.FC<MatrixPivotProps> = ({ sheet }) => {
       <div class="stats-container">
         <div class="stat-card">
           <div class="label">Total SDMK Teranalisis</div>
-          <div class="val">${matrixRows.length} <span style="font-size:9pt;font-weight:normal;">Orang</span></div>
+          <div class="val">${activeRows.length} <span style="font-size:9pt;font-weight:normal;">Orang</span></div>
         </div>
         <div class="stat-card">
           <div class="label">Dimensi Baris (Y)</div>
@@ -690,15 +690,15 @@ export const MatrixPivot: React.FC<MatrixPivotProps> = ({ sheet }) => {
     `;
 
     let rowsHtml = '';
-    processedRows.forEach((r, idx) => {
+    filteredSortedRowKeys.forEach((r) => {
       const rTot = formatCell(rowTotals[r]);
       rowsHtml += `
         <tr>
           <td style="font-weight:700; color:#0f172a;">${r}</td>
           ${colKeys.map(c => {
-            const val = matrixData[r]?.[c];
+            const val = matrix[r]?.[c];
             const formatted = formatCell(val);
-            const isZero = !val || (typeof val === 'number' && val === 0);
+            const isZero = !val || (val.count === 0);
             return `<td style="text-align:center; ${isZero ? 'color:#94a3b8;' : 'font-weight:700; color:#1e293b;'}">${formatted}</td>`;
           }).join('')}
           <td style="text-align:center; font-weight:800; background:#f8fafc; color:#0f172a;">${rTot}</td>
