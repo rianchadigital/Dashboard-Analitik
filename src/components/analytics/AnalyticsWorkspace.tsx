@@ -7,7 +7,8 @@ import {
   Clock, 
   MapPin, 
   Layers,
-  Sparkles
+  Sparkles,
+  Award
 } from 'lucide-react';
 import { Sheet, RowData } from '../../types/sheet';
 import { GrafikVisual } from './GrafikVisual';
@@ -16,9 +17,11 @@ import { MatrixPivot } from './MatrixPivot';
 import { StrSipMonitoring } from './StrSipMonitoring';
 import { ProyeksiPensiun } from './ProyeksiPensiun';
 import { SebaranWilayah } from './SebaranWilayah';
+import { DukPegawai } from './DukPegawai';
 
 export type AnalyticsSubTab = 
   | 'grafik_visual'
+  | 'duk'
   | 'domisili'
   | 'matrix_pivot'
   | 'str_sip'
@@ -45,6 +48,13 @@ export const AnalyticsWorkspace: React.FC<AnalyticsWorkspaceProps> = ({
       icon: PieIcon,
       color: 'text-blue-600',
       desc: 'Dashboard ringkasan metrik & grafik visual'
+    },
+    {
+      id: 'duk' as AnalyticsSubTab,
+      label: 'DUK (Urutan Kepangkatan)',
+      icon: Award,
+      color: 'text-indigo-600',
+      desc: 'Daftar Urut Kepangkatan khusus ASN (PNS, CPNS & PPPK) urut pangkat tertinggi'
     },
     {
       id: 'domisili' as AnalyticsSubTab,
@@ -116,6 +126,9 @@ export const AnalyticsWorkspace: React.FC<AnalyticsWorkspaceProps> = ({
       <div className="animate-in fade-in duration-150">
         {activeSubTab === 'grafik_visual' && (
           <GrafikVisual sheet={sheet} />
+        )}
+        {activeSubTab === 'duk' && (
+          <DukPegawai sheet={sheet} />
         )}
         {activeSubTab === 'domisili' && (
           <DomisiliManager sheet={sheet} onUpdateRow={onUpdateRow} />

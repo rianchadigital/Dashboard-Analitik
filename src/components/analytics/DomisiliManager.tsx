@@ -11,7 +11,9 @@ import {
   X, 
   Navigation, 
   Users,
-  Compass
+  Compass,
+  ExternalLink,
+  Printer
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -27,6 +29,7 @@ import {
   Legend 
 } from 'recharts';
 import { Sheet, RowData } from '../../types/sheet';
+import { printReportInNewTab } from '../../utils/pdfReportGenerator';
 
 interface DomisiliManagerProps {
   sheet: Sheet;
@@ -175,6 +178,91 @@ export const DomisiliManager: React.FC<DomisiliManagerProps> = ({ sheet, onUpdat
     a.download = `Data_Domisili_SDMK_Puskesmas.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // Handler Cetak PDF Tab Baru
+  const handlePrintPdfNewTab = () => {
+    const statsHtml = `
+      <div class="stats-container">
+        <div class="stat-card">
+          <div class="label">Total SDMK Terdata</div>
+          <div class="val">${stats.total} <span style="font-size:9pt;font-weight:normal;">Orang</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Lokal Kep. Seribu (Pulau)</div>
+          <div class="val" style="color:#059669;">${stats.lokalPulau} <span style="font-size:9pt;font-weight:normal;">(${stats.lokalPct}%)</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Daratan DKI Jakarta</div>
+          <div class="val" style="color:#0284c7;">${stats.daratanDki} <span style="font-size:9pt;font-weight:normal;">(${stats.daratanPct}%)</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Luar DKI (Banten / Jabar)</div>
+          <div class="val" style="color:#d97706;">${stats.luarDki} <span style="font-size:9pt;font-weight:normal;">(${stats.luarPct}%)</span></div>
+        </div>
+      </div>
+    `;
+
+    let rowsHtml = '';
+    filteredRows.forEach((r, idx) => {
+      const wil = r.domisili_wilayah || 'Daratan DKI Jakarta';
+      const badgeCls = wil.includes('Lokal') ? 'badge-pppk' : wil.includes('Daratan') ? 'badge-pns' : 'badge-non';
+
+      rowsHtml += `
+        <tr>
+          <td style="text-align:center; font-weight:700;">${idx + 1}</td>
+          <td>
+            <div style="font-weight:700; color:#0f172a;">${r.nama_gelar || r.nama || '-'}</div>
+            <div style="font-size:7.5pt; color:#64748b; font-family:monospace;">${r.nip ? 'NIP ' + r.nip : 'NIK ' + (r.nik || '-')}</div>
+          </td>
+          <td>
+            <div style="font-weight:600; color:#1e293b;">${r.jabatan || '-'}</div>
+            <div style="font-size:7.5pt; color:#64748b;">${r.tempat_tugas || '-'}</div>
+          </td>
+          <td>
+            <div style="font-weight:700; color:#0f172a;">${r.kelurahan || '-'}</div>
+            <div style="font-size:7.5pt; color:#475569;">Kec. ${r.kecamatan || '-'}</div>
+          </td>
+          <td>
+            <div style="font-weight:600;">${r.kab_kota || '-'}</div>
+            <div style="font-size:7pt; color:#64748b;">${r.provinsi || 'DKI Jakarta'}</div>
+          </td>
+          <td>
+            <span class="badge ${badgeCls}">${wil}</span>
+          </td>
+          <td style="font-size:7.5pt; color:#475569; max-width:200px;">
+            ${r.alamat || '-'}
+          </td>
+        </tr>
+      `;
+    });
+
+    const tableHtml = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:40px; text-align:center;">No</th>
+            <th style="width:190px;">Nama Pegawai & NIP</th>
+            <th style="width:170px;">Jabatan & Unit Tugas</th>
+            <th style="width:140px;">Kelurahan & Kec.</th>
+            <th style="width:140px;">Kabupaten / Kota</th>
+            <th style="width:120px;">Wilayah Domisili</th>
+            <th>Alamat Tempat Tinggal</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml || '<tr><td colspan="7" style="text-align:center; padding:20px;">Tidak ada data domisili</td></tr>'}
+        </tbody>
+      </table>
+    `;
+
+    printReportInNewTab({
+      title: 'LAPORAN SEBARAN DOMISILI & TEMPAT TINGGAL SDMK',
+      subtitle: `Filter: Kategori [${filterWilayah}] • Unit [${filterUnit}] • Total [${filteredRows.length} Pegawai]`,
+      orientation: 'landscape',
+      tableHtml,
+      statsHtml
+    });
   };
 
   return (
@@ -348,9 +436,20 @@ export const DomisiliManager: React.FC<DomisiliManagerProps> = ({ sheet, onUpdat
             <button
               onClick={handleExportCSV}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors ml-auto md:ml-0"
+              title="Unduh data domisili format CSV"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Ekspor CSV</span>
+            </button>
+
+            <button
+              id="btn-cetak-pdf-domisili"
+              onClick={handlePrintPdfNewTab}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-2xs"
+              title="Buka dan Cetak Dokumen Domisili Staf di Tab Baru"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Cetak PDF (Tab Baru)</span>
             </button>
           </div>
         </div>

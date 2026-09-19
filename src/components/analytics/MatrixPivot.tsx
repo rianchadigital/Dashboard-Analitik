@@ -10,10 +10,13 @@ import {
   Layers,
   CheckCircle2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ExternalLink,
+  Printer
 } from 'lucide-react';
 import { Sheet, RowData } from '../../types/sheet';
 import { StaffListModal } from '../Modals/StaffListModal';
+import { printReportInNewTab } from '../../utils/pdfReportGenerator';
 
 interface MatrixPivotProps {
   sheet: Sheet;
@@ -654,6 +657,86 @@ export const MatrixPivot: React.FC<MatrixPivotProps> = ({ sheet }) => {
   const selectedRowLabel = allDimensions.find(d => d.id === rowDimension)?.label || rowDimension;
   const selectedColLabel = allDimensions.find(d => d.id === colDimension)?.label || colDimension;
 
+  // Handler Cetak PDF Tab Baru Matriks Tabulasi Silang
+  const handlePrintPdfNewTab = () => {
+    const statsHtml = `
+      <div class="stats-container">
+        <div class="stat-card">
+          <div class="label">Total SDMK Teranalisis</div>
+          <div class="val">${matrixRows.length} <span style="font-size:9pt;font-weight:normal;">Orang</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Dimensi Baris (Y)</div>
+          <div class="val" style="color:#0284c7; font-size:11pt;">${selectedRowLabel}</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Dimensi Kolom (X)</div>
+          <div class="val" style="color:#059669; font-size:11pt;">${selectedColLabel}</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Metrik Analisis</div>
+          <div class="val" style="color:#7c3aed; font-size:11pt;">
+            ${metric === 'count' ? 'Jumlah Pegawai (Count)' : metric === 'avg_usia' ? 'Rata-rata Usia' : metric === 'avg_masa_kerja' ? 'Rata-rata Masa Kerja' : 'Sisa Pensiun'}
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Build Matrix Table
+    let tableHeaders = `
+      <th>${selectedRowLabel} \\ ${selectedColLabel}</th>
+      ${colKeys.map(c => `<th style="text-align:center; min-width:80px;">${c}</th>`).join('')}
+      <th style="text-align:center; min-width:90px; background:#f1f5f9; font-weight:800;">TOTAL</th>
+    `;
+
+    let rowsHtml = '';
+    processedRows.forEach((r, idx) => {
+      const rTot = formatCell(rowTotals[r]);
+      rowsHtml += `
+        <tr>
+          <td style="font-weight:700; color:#0f172a;">${r}</td>
+          ${colKeys.map(c => {
+            const val = matrixData[r]?.[c];
+            const formatted = formatCell(val);
+            const isZero = !val || (typeof val === 'number' && val === 0);
+            return `<td style="text-align:center; ${isZero ? 'color:#94a3b8;' : 'font-weight:700; color:#1e293b;'}">${formatted}</td>`;
+          }).join('')}
+          <td style="text-align:center; font-weight:800; background:#f8fafc; color:#0f172a;">${rTot}</td>
+        </tr>
+      `;
+    });
+
+    const colTotRow = `
+      <tr style="background:#e2e8f0; font-weight:800;">
+        <td style="font-weight:800; text-transform:uppercase;">TOTAL</td>
+        ${colKeys.map(c => `<td style="text-align:center; font-weight:800; color:#0f172a;">${formatCell(colTotals[c])}</td>`).join('')}
+        <td style="text-align:center; font-weight:900; font-size:10pt; color:#1d4ed8; background:#cbd5e1;">${formatCell(grandTotal)}</td>
+      </tr>
+    `;
+
+    const tableHtml = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            ${tableHeaders}
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml || '<tr><td colspan="100" style="text-align:center; padding:20px;">Tidak ada data matriks</td></tr>'}
+          ${colTotRow}
+        </tbody>
+      </table>
+    `;
+
+    printReportInNewTab({
+      title: `TABULASI SILANG MATRIKS SDMK (${selectedRowLabel} X ${selectedColLabel})`,
+      subtitle: `Puskesmas Kepulauan Seribu Selatan • Filter Unit [${filterUnit}]`,
+      orientation: 'landscape',
+      tableHtml,
+      statsHtml
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Control Panel Card */}
@@ -695,6 +778,16 @@ export const MatrixPivot: React.FC<MatrixPivotProps> = ({ sheet }) => {
             >
               <Download className="w-3.5 h-3.5" />
               <span>Ekspor Matriks</span>
+            </button>
+
+            <button
+              id="btn-cetak-pdf-pivot"
+              onClick={handlePrintPdfNewTab}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-2xs"
+              title="Buka dan Cetak Tabulasi Matriks di Tab Baru"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Cetak PDF (Tab Baru)</span>
             </button>
 
             <button

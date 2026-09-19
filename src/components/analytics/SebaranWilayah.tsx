@@ -23,10 +23,13 @@ import {
   Filter,
   Eye,
   Check,
-  X
+  X,
+  ExternalLink,
+  Printer
 } from 'lucide-react';
 import { Sheet, RowData } from '../../types/sheet';
 import { StaffListModal } from '../Modals/StaffListModal';
+import { printReportInNewTab } from '../../utils/pdfReportGenerator';
 
 interface SebaranWilayahProps {
   sheet: Sheet;
@@ -497,6 +500,115 @@ export const SebaranWilayah: React.FC<SebaranWilayahProps> = ({ sheet }) => {
     URL.revokeObjectURL(url);
   };
 
+  // Handler Cetak PDF Tab Baru
+  const handlePrintPdfNewTab = () => {
+    const statsHtml = `
+      <div class="stats-container">
+        <div class="stat-card">
+          <div class="label">Total SDMK Terpetakan</div>
+          <div class="val">${grandTotal.counts.total} <span style="font-size:9pt;font-weight:normal;">Orang</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Fasilitas Pelayanan</div>
+          <div class="val" style="color:#0284c7;">${tableData.length} <span style="font-size:9pt;font-weight:normal;">Faskes Pulau</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Kepatuhan Standar 9 Nakes</div>
+          <div class="val" style="color:#059669;">${grandTotal.compliancePercent}% <span style="font-size:9pt;font-weight:normal;">(${grandTotal.availableCount}/9 Nakes)</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Tenaga Perawat & Bidan</div>
+          <div class="val" style="color:#7c3aed;">${grandTotal.counts.perawat + grandTotal.counts.bidan} <span style="font-size:9pt;font-weight:normal;">Personil</span></div>
+        </div>
+      </div>
+    `;
+
+    let rowsHtml = '';
+    tableData.forEach((row, idx) => {
+      rowsHtml += `
+        <tr>
+          <td style="text-align:center; font-weight:700;">${idx + 1}</td>
+          <td>
+            <div style="font-weight:700; color:#0f172a;">${row.name}</div>
+            <div style="font-size:7.5pt; color:#64748b;">Pulau: ${row.island}</div>
+          </td>
+          <td style="text-align:center; font-weight:800; background:#f8fafc; font-size:9.5pt;">${row.counts.total}</td>
+          <td style="text-align:center; ${row.counts.dr_umum > 0 ? 'font-weight:700; color:#059669;' : 'color:#94a3b8;'}">${row.counts.dr_umum}</td>
+          <td style="text-align:center; ${row.counts.dr_gigi > 0 ? 'font-weight:700; color:#059669;' : 'color:#94a3b8;'}">${row.counts.dr_gigi}</td>
+          <td style="text-align:center; ${row.counts.perawat > 0 ? 'font-weight:700; color:#059669;' : 'color:#94a3b8;'}">${row.counts.perawat}</td>
+          <td style="text-align:center; ${row.counts.bidan > 0 ? 'font-weight:700; color:#059669;' : 'color:#94a3b8;'}">${row.counts.bidan}</td>
+          <td style="text-align:center; ${row.counts.kesmas > 0 ? 'font-weight:700; color:#059669;' : 'color:#94a3b8;'}">${row.counts.kesmas}</td>
+          <td style="text-align:center; ${row.counts.kesling > 0 ? 'font-weight:700; color:#059669;' : 'color:#94a3b8;'}">${row.counts.kesling}</td>
+          <td style="text-align:center; ${row.counts.atlm > 0 ? 'font-weight:700; color:#059669;' : 'color:#94a3b8;'}">${row.counts.atlm}</td>
+          <td style="text-align:center; ${row.counts.gizi > 0 ? 'font-weight:700; color:#059669;' : 'color:#94a3b8;'}">${row.counts.gizi}</td>
+          <td style="text-align:center; ${row.counts.farmasi > 0 ? 'font-weight:700; color:#059669;' : 'color:#94a3b8;'}">${row.counts.farmasi}</td>
+          <td style="text-align:center; color:#475569;">${row.counts.admin}</td>
+          <td style="text-align:center; font-weight:800; color:#047857;">${row.available9NakesCount}/9</td>
+          <td style="text-align:center;">
+            <span class="badge ${row.compliancePercent >= 80 ? 'badge-pppk' : row.compliancePercent >= 50 ? 'badge-warning' : 'badge-danger'}">
+              ${row.compliancePercent}%
+            </span>
+          </td>
+        </tr>
+      `;
+    });
+
+    const totRow = `
+      <tr style="background:#e2e8f0; font-weight:800;">
+        <td colspan="2" style="text-align:center; font-weight:800; text-transform:uppercase;">TOTAL KESELURUHAN (KECAMATAN & PUSTU)</td>
+        <td style="text-align:center; font-weight:900; font-size:10pt; color:#1d4ed8;">${grandTotal.counts.total}</td>
+        <td style="text-align:center;">${grandTotal.counts.dr_umum}</td>
+        <td style="text-align:center;">${grandTotal.counts.dr_gigi}</td>
+        <td style="text-align:center;">${grandTotal.counts.perawat}</td>
+        <td style="text-align:center;">${grandTotal.counts.bidan}</td>
+        <td style="text-align:center;">${grandTotal.counts.kesmas}</td>
+        <td style="text-align:center;">${grandTotal.counts.kesling}</td>
+        <td style="text-align:center;">${grandTotal.counts.atlm}</td>
+        <td style="text-align:center;">${grandTotal.counts.gizi}</td>
+        <td style="text-align:center;">${grandTotal.counts.farmasi}</td>
+        <td style="text-align:center;">${grandTotal.counts.admin}</td>
+        <td style="text-align:center; font-weight:800;">${grandTotal.availableCount}/9</td>
+        <td style="text-align:center; font-weight:900; color:#047857;">${grandTotal.compliancePercent}%</td>
+      </tr>
+    `;
+
+    const tableHtml = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:30px; text-align:center;">No</th>
+            <th style="width:170px;">Fasilitas Pelayanan / Pustu</th>
+            <th style="width:50px; text-align:center;">Total</th>
+            <th style="width:40px; text-align:center;" title="Dokter Umum">Dr.U</th>
+            <th style="width:40px; text-align:center;" title="Dokter Gigi">Dr.G</th>
+            <th style="width:40px; text-align:center;" title="Perawat">Pwt</th>
+            <th style="width:40px; text-align:center;" title="Bidan">Bdn</th>
+            <th style="width:40px; text-align:center;" title="Promkes/Kesmas">Ksm</th>
+            <th style="width:40px; text-align:center;" title="Sanitarian/Kesling">Ksl</th>
+            <th style="width:40px; text-align:center;" title="ATLM Laboratorium">Lab</th>
+            <th style="width:40px; text-align:center;" title="Nutrisionis">Giz</th>
+            <th style="width:40px; text-align:center;" title="Farmasi/Apoteker">Far</th>
+            <th style="width:40px; text-align:center;" title="Non Nakes / Admin">Adm</th>
+            <th style="width:55px; text-align:center;">Nakes</th>
+            <th style="width:70px; text-align:center;">Kepatuhan</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+          ${totRow}
+        </tbody>
+      </table>
+    `;
+
+    printReportInNewTab({
+      title: 'PEMETAAN SEBARAN SDMK & KECUKUPAN 9 NAKES WAJIB PUSKESMAS',
+      subtitle: 'Berdasarkan Standar Minimal Permenkes No. 43 Tahun 2019 • Faskes Kepulauan Seribu',
+      orientation: 'landscape',
+      tableHtml,
+      statsHtml
+    });
+  };
+
   // Staff roster filtering
   const activeStaffList = useMemo(() => {
     let list = sheet.rows;
@@ -543,14 +655,24 @@ export const SebaranWilayah: React.FC<SebaranWilayahProps> = ({ sheet }) => {
           </p>
         </div>
 
-        <div>
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={handleExportExcel}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-emerald-800 bg-white hover:bg-emerald-50 border border-emerald-600 rounded-lg shadow-2xs transition-all"
+            className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-emerald-800 bg-white hover:bg-emerald-50 border border-emerald-600 rounded-lg shadow-2xs transition-all"
             title="Download file Excel/CSV Sebaran dan Evaluasi Standar 9 Nakes"
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
             <span>Export Excel Sebaran</span>
+          </button>
+
+          <button
+            id="btn-cetak-pdf-sebaran"
+            onClick={handlePrintPdfNewTab}
+            className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs transition-all"
+            title="Buka dan Cetak Dokumen Pemetaan Sebaran SDMK di Tab Baru"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>Cetak PDF (Tab Baru)</span>
           </button>
         </div>
       </div>

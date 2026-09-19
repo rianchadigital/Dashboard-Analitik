@@ -10,7 +10,9 @@ import {
   ArrowUpRight,
   TrendingDown,
   Award,
-  Users
+  Users,
+  ExternalLink,
+  Printer
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -23,6 +25,7 @@ import {
   Legend
 } from 'recharts';
 import { Sheet, RowData } from '../../types/sheet';
+import { printReportInNewTab } from '../../utils/pdfReportGenerator';
 
 interface ProyeksiPensiunProps {
   sheet: Sheet;
@@ -151,6 +154,105 @@ export const ProyeksiPensiun: React.FC<ProyeksiPensiunProps> = ({ sheet }) => {
     a.download = `Nominatif_Proyeksi_Pensiun_SDMK.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // Handler Cetak PDF Tab Baru
+  const handlePrintPdfNewTab = () => {
+    const statsHtml = `
+      <div class="stats-container">
+        <div class="stat-card">
+          <div class="label">Mendekati Pensiun (&lt; 5 Thn)</div>
+          <div class="val" style="color:#d97706;">${stats.mendekatiPensiun} <span style="font-size:9pt;font-weight:normal;">Orang</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Pensiun Kritis (&lt; 1 Tahun)</div>
+          <div class="val" style="color:#e11d48;">${stats.under1Year} <span style="font-size:9pt;font-weight:normal;">Orang</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Pensiun 1 - 3 Tahun</div>
+          <div class="val" style="color:#0284c7;">${stats.oneToThreeYears} <span style="font-size:9pt;font-weight:normal;">Orang</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Rata-rata Sisa Masa Kerja</div>
+          <div class="val" style="color:#059669;">${stats.avgSisa} <span style="font-size:9pt;font-weight:normal;">Tahun</span></div>
+        </div>
+      </div>
+    `;
+
+    let rowsHtml = '';
+    filteredRows.forEach((r, idx) => {
+      const sisaThn = typeof r.sisa_pensiun_tahun === 'number' ? r.sisa_pensiun_tahun : 99;
+      let badgeCls = 'badge-pppk';
+      let statusSuksesi = 'Aman (> 5 thn)';
+      if (sisaThn <= 1) {
+        badgeCls = 'badge-danger';
+        statusSuksesi = 'Sangat Kritis (< 1 thn)';
+      } else if (sisaThn <= 3) {
+        badgeCls = 'badge-warning';
+        statusSuksesi = 'Prioritas Suksesi (1-3 thn)';
+      } else if (sisaThn <= 5) {
+        badgeCls = 'badge-pns';
+        statusSuksesi = 'Perlu Kaderisasi (3-5 thn)';
+      }
+
+      rowsHtml += `
+        <tr>
+          <td style="text-align:center; font-weight:700;">${idx + 1}</td>
+          <td>
+            <div style="font-weight:700; color:#0f172a;">${r.nama_gelar || r.nama || '-'}</div>
+            <div style="font-size:7.5pt; color:#64748b; font-family:monospace;">${r.nip ? 'NIP ' + r.nip : 'NIK ' + (r.nik || '-')}</div>
+          </td>
+          <td>
+            <div style="font-weight:700;">${r.status_kepegawaian || '-'}</div>
+            <div style="font-size:7.5pt; color:#64748b;">${r.pangkat_golongan || '-'}</div>
+          </td>
+          <td>
+            <div style="font-weight:600; color:#1e293b;">${r.jabatan || '-'}</div>
+            <div style="font-size:7.5pt; color:#64748b;">${r.tempat_tugas || '-'}</div>
+          </td>
+          <td style="text-align:right; font-weight:700; font-size:9.5pt;">
+            ${r.usia_tahun ? r.usia_tahun + ' th' : '-'}
+          </td>
+          <td style="text-align:center; font-weight:600; color:#0f172a;">
+            ${r.tanggal_pensiun || '-'}
+          </td>
+          <td style="text-align:center; font-weight:700; color:#1d4ed8;">
+            ${r.sisa_pensiun || (sisaThn < 90 ? sisaThn + ' Tahun' : '-')}
+          </td>
+          <td style="text-align:center;">
+            <span class="badge ${badgeCls}">${statusSuksesi}</span>
+          </td>
+        </tr>
+      `;
+    });
+
+    const tableHtml = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:35px; text-align:center;">No</th>
+            <th style="width:200px;">Nama Pegawai & NIP</th>
+            <th style="width:110px;">Status / Gol</th>
+            <th style="width:180px;">Jabatan & Unit Kerja</th>
+            <th style="width:70px; text-align:right;">Usia</th>
+            <th style="width:120px; text-align:center;">Tgl Pensiun (BUP)</th>
+            <th style="width:120px; text-align:center;">Sisa Masa Kerja</th>
+            <th style="width:130px; text-align:center;">Status Suksesi</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml || '<tr><td colspan="8" style="text-align:center; padding:20px;">Tidak ada data proyeksi pensiun</td></tr>'}
+        </tbody>
+      </table>
+    `;
+
+    printReportInNewTab({
+      title: 'DAFTAR NOMINATIF PROYEKSI PENSIUN & RENCANA SUKSESI SDMK',
+      subtitle: `Filter: Status [${filterStatus}] • Unit [${filterUnit}] • Sisa [${filterSisa}] • Total [${filteredRows.length} Pegawai]`,
+      orientation: 'landscape',
+      tableHtml,
+      statsHtml
+    });
   };
 
   return (
@@ -293,9 +395,20 @@ export const ProyeksiPensiun: React.FC<ProyeksiPensiunProps> = ({ sheet }) => {
             <button
               onClick={handleExportCSV}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors ml-auto md:ml-0"
+              title="Unduh nominatif proyeksi pensiun format CSV"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Ekspor Nominatif</span>
+            </button>
+
+            <button
+              id="btn-cetak-pdf-pensiun"
+              onClick={handlePrintPdfNewTab}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-2xs"
+              title="Buka dan Cetak Dokumen Proyeksi Pensiun di Tab Baru"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Cetak PDF (Tab Baru)</span>
             </button>
           </div>
         </div>

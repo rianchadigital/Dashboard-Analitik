@@ -14,7 +14,9 @@ import {
   Filter, 
   RotateCcw,
   Sparkles,
-  Layers
+  Layers,
+  ExternalLink,
+  Printer
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -30,6 +32,7 @@ import {
   Legend 
 } from 'recharts';
 import { Sheet } from '../../types/sheet';
+import { printReportInNewTab } from '../../utils/pdfReportGenerator';
 
 interface GrafikVisualProps {
   sheet: Sheet;
@@ -326,6 +329,123 @@ export const GrafikVisual: React.FC<GrafikVisualProps> = ({ sheet }) => {
     URL.revokeObjectURL(url);
   };
 
+  // Handler Cetak PDF Tab Baru
+  const handlePrintPdfNewTab = () => {
+    // 1. Stats Cards
+    const statsHtml = `
+      <div class="stats-container">
+        <div class="stat-card">
+          <div class="label">Total SDMK Terdata</div>
+          <div class="val">${kpis.total} <span style="font-size:9pt;font-weight:normal;">Orang</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Tenaga Kesehatan</div>
+          <div class="val" style="color:#059669;">${kpis.nakes} <span style="font-size:9pt;font-weight:normal;">(${kpis.nakesPct}%)</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Tenaga Penunjang</div>
+          <div class="val" style="color:#475569;">${kpis.penunjang} <span style="font-size:9pt;font-weight:normal;">Orang</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Aparatur Sipil Negara (ASN)</div>
+          <div class="val" style="color:#1d4ed8;">${kpis.asn} <span style="font-size:9pt;font-weight:normal;">(${kpis.asnPct}%)</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Non-ASN & PJLP</div>
+          <div class="val" style="color:#d97706;">${kpis.nonAsn} <span style="font-size:9pt;font-weight:normal;">Orang</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Rata-rata Usia / Masa Kerja</div>
+          <div class="val" style="color:#7c3aed; font-size:12pt;">${kpis.avgUsia} th / ${kpis.avgMasa} th</div>
+        </div>
+      </div>
+    `;
+
+    // 2. Table: Komposisi Status Kepegawaian
+    let statusRows = '';
+    statusBarData.forEach((d, idx) => {
+      statusRows += `
+        <tr>
+          <td style="text-align:center; font-weight:700;">${idx + 1}</td>
+          <td style="font-weight:700;">${d.name}</td>
+          <td><span class="badge ${d.name.includes('PNS') ? 'badge-pns' : d.name.includes('PPPK') ? 'badge-pppk' : 'badge-non'}">${d.category}</span></td>
+          <td style="text-align:right; font-weight:800; font-size:10pt;">${d.count} Org</td>
+          <td style="text-align:right; font-weight:700; color:#047857;">${d.pctStr}</td>
+        </tr>
+      `;
+    });
+
+    // 3. Table: Sebaran Unit Tugas
+    let unitRows = '';
+    unitStatusData.forEach((d, idx) => {
+      unitRows += `
+        <tr>
+          <td style="text-align:center; font-weight:700;">${idx + 1}</td>
+          <td style="font-weight:700;">${d.name}</td>
+          <td style="text-align:center; font-weight:700; color:#1d4ed8;">${d.PNS}</td>
+          <td style="text-align:center; font-weight:700; color:#059669;">${d.PPPK}</td>
+          <td style="text-align:center; font-weight:700; color:#d97706;">${d['NON PNS']}</td>
+          <td style="text-align:center; font-weight:700; color:#7c3aed;">${d.PJLP}</td>
+          <td style="text-align:center; font-weight:700; color:#e11d48;">${d.CPNS}</td>
+          <td style="text-align:center; font-weight:800; background:#f8fafc; font-size:10pt;">${d.total}</td>
+        </tr>
+      `;
+    });
+
+    const tableHtml = `
+      <div style="margin-bottom: 24px;">
+        <h3 style="font-size:11pt; font-weight:800; color:#0f172a; margin-bottom:8px; text-transform:uppercase;">
+          1. Distribusi Status Kepegawaian SDMK
+        </h3>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:40px; text-align:center;">No</th>
+              <th>Status Kepegawaian</th>
+              <th style="width:130px;">Kategori</th>
+              <th style="width:120px; text-align:right;">Jumlah (Orang)</th>
+              <th style="width:100px; text-align:right;">Persentase</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${statusRows}
+          </tbody>
+        </table>
+      </div>
+
+      <div>
+        <h3 style="font-size:11pt; font-weight:800; color:#0f172a; margin-bottom:8px; text-transform:uppercase;">
+          2. Formasi SDMK per Satuan Kerja & Unit Tugas
+        </h3>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:40px; text-align:center;">No</th>
+              <th>Unit Tugas / Lokasi Faskes</th>
+              <th style="width:70px; text-align:center;">PNS</th>
+              <th style="width:70px; text-align:center;">PPPK</th>
+              <th style="width:75px; text-align:center;">NON PNS</th>
+              <th style="width:70px; text-align:center;">PJLP</th>
+              <th style="width:70px; text-align:center;">CPNS</th>
+              <th style="width:85px; text-align:center; background:#f1f5f9;">Total SDMK</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${unitRows}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    printReportInNewTab({
+      title: 'LAPORAN EKSEKUTIF GRAFIK & DEMOGRAFI SDMK',
+      subtitle: `Filter: Unit [${filterUnit}] • Tenaga [${filterTenaga}] • Status [${filterStatus}]`,
+      orientation: 'landscape',
+      tableHtml,
+      statsHtml
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Control & Filter Header */}
@@ -384,9 +504,20 @@ export const GrafikVisual: React.FC<GrafikVisualProps> = ({ sheet }) => {
             <button
               onClick={handleExportSummary}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors ml-auto md:ml-0"
+              title="Ekspor ringkasan dalam format CSV"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Ekspor Ringkasan</span>
+              <span>Ekspor CSV</span>
+            </button>
+
+            <button
+              id="btn-cetak-pdf-grafik"
+              onClick={handlePrintPdfNewTab}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-2xs"
+              title="Buka dan Cetak Dokumen Ringkasan Grafik & Demografi SDMK di Tab Baru"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Cetak PDF (Tab Baru)</span>
             </button>
           </div>
         </div>

@@ -13,9 +13,12 @@ import {
   Stethoscope,
   ShieldAlert,
   FileCheck,
-  UserCheck
+  UserCheck,
+  ExternalLink,
+  Printer
 } from 'lucide-react';
 import { Sheet, RowData } from '../../types/sheet';
+import { printReportInNewTab } from '../../utils/pdfReportGenerator';
 
 interface StrSipMonitoringProps {
   sheet: Sheet;
@@ -179,6 +182,96 @@ export const StrSipMonitoring: React.FC<StrSipMonitoringProps> = ({ sheet, onUpd
     a.download = `Monitoring_STR_SIP_SDMK_Puskesmas.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // Handler Cetak PDF Tab Baru
+  const handlePrintPdfNewTab = () => {
+    const statsHtml = `
+      <div class="stats-container">
+        <div class="stat-card">
+          <div class="label">Total Tenaga Kesehatan</div>
+          <div class="val">${stats.totalNakes} <span style="font-size:9pt;font-weight:normal;">Orang</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">STR Aktif / Seumur Hidup</div>
+          <div class="val" style="color:#059669;">${stats.strAktif} <span style="font-size:9pt;font-weight:normal;">(${((stats.strAktif / (stats.totalNakes || 1)) * 100).toFixed(1)}%)</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">SIP Aktif Berlaku</div>
+          <div class="val" style="color:#0284c7;">${stats.sipAktif} <span style="font-size:9pt;font-weight:normal;">Orang</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="label">SIP Perlu Perpanjangan / Expired</div>
+          <div class="val" style="color:#e11d48;">${stats.sipPerluPerpanjangan} <span style="font-size:9pt;font-weight:normal;">Orang</span></div>
+        </div>
+      </div>
+    `;
+
+    let rowsHtml = '';
+    filteredRows.forEach((r, idx) => {
+      const isStrOk = (r.status_str || '').toLowerCase().includes('aktif') || (r.status_str || '').toLowerCase().includes('seumur');
+      const isSipOk = (r.status_sip || '').toLowerCase().includes('aktif');
+      const isSipWarning = (r.status_sip || '').toLowerCase().includes('segera') || (r.status_sip || '').toLowerCase().includes('perpanjang');
+
+      rowsHtml += `
+        <tr>
+          <td style="text-align:center; font-weight:700;">${idx + 1}</td>
+          <td>
+            <div style="font-weight:700; color:#0f172a;">${r.nama_gelar || r.nama || '-'}</div>
+            <div style="font-size:7.5pt; color:#64748b; font-family:monospace;">${r.nip ? 'NIP ' + r.nip : 'NIK ' + (r.nik || '-')}</div>
+          </td>
+          <td>
+            <div style="font-weight:600; color:#1e293b;">${r.jabatan || '-'}</div>
+            <div style="font-size:7.5pt; color:#64748b;">${r.tempat_tugas || '-'}</div>
+          </td>
+          <td>
+            <div style="font-family:monospace; font-size:7.5pt; font-weight:700; color:#0f172a;">${r.no_str || '-'}</div>
+            <div style="font-size:7.5pt; color:#475569;">s/d: ${r.masa_berlaku_str || 'Seumur Hidup'}</div>
+          </td>
+          <td style="text-align:center;">
+            <span class="badge ${isStrOk ? 'badge-pppk' : 'badge-danger'}">
+              ${r.status_str || 'Aktif'}
+            </span>
+          </td>
+          <td>
+            <div style="font-family:monospace; font-size:7.5pt; font-weight:700; color:#0f172a;">${r.no_sip || '-'}</div>
+            <div style="font-size:7.5pt; color:#475569;">s/d: ${r.masa_berlaku_sip || '-'}</div>
+          </td>
+          <td style="text-align:center;">
+            <span class="badge ${isSipOk ? 'badge-pns' : isSipWarning ? 'badge-warning' : 'badge-danger'}">
+              ${r.status_sip || 'Aktif'}
+            </span>
+          </td>
+        </tr>
+      `;
+    });
+
+    const tableHtml = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:35px; text-align:center;">No</th>
+            <th style="width:190px;">Nama Tenaga Medis / Nakes</th>
+            <th style="width:170px;">Jabatan & Satuan Kerja</th>
+            <th style="width:160px;">Nomor & Masa STR</th>
+            <th style="width:95px; text-align:center;">Status STR</th>
+            <th style="width:160px;">Nomor & Masa SIP</th>
+            <th style="width:105px; text-align:center;">Status SIP</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml || '<tr><td colspan="7" style="text-align:center; padding:20px;">Tidak ada data tenaga kesehatan</td></tr>'}
+        </tbody>
+      </table>
+    `;
+
+    printReportInNewTab({
+      title: 'LAPORAN MONITORING & KEPATUHAN STR - SIP TENAGA KESEHATAN',
+      subtitle: `Berdasarkan Regulasi UU Kesehatan No. 17 Tahun 2023 • Tab: [${filterTab}] • Profesi: [${filterProfesi}] • Unit: [${filterUnit}]`,
+      orientation: 'landscape',
+      tableHtml,
+      statsHtml
+    });
   };
 
   return (
@@ -348,9 +441,20 @@ export const StrSipMonitoring: React.FC<StrSipMonitoringProps> = ({ sheet, onUpd
             <button
               onClick={handleExportCSV}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors ml-auto md:ml-0"
+              title="Unduh laporan kepatuhan format CSV"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Ekspor CSV</span>
+            </button>
+
+            <button
+              id="btn-cetak-pdf-str-sip"
+              onClick={handlePrintPdfNewTab}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-2xs"
+              title="Buka dan Cetak Dokumen Monitoring STR - SIP di Tab Baru"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Cetak PDF (Tab Baru)</span>
             </button>
           </div>
         </div>
